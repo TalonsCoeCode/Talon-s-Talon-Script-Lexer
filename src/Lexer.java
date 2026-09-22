@@ -1,13 +1,37 @@
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Lexer {
-
     private final String source;
     private final ArrayList<Token> tokens = new ArrayList<>();
 
     private int start = 0;
     private int current = 0;
     private int line = 1;
+
+    private static final Map<String, TokenType> keywords = new HashMap<>();
+
+    static {
+        keywords.put("true", TokenType.TRUE);
+        keywords.put("false", TokenType.FALSE);
+        keywords.put("none", TokenType.NONE);
+        keywords.put("var", TokenType.VAR);
+        keywords.put("write", TokenType.WRITE);
+        keywords.put("print", TokenType.WRITE);
+        keywords.put("if", TokenType.IF);
+        keywords.put("else", TokenType.ELSE);
+        keywords.put("while", TokenType.WHILE);
+        keywords.put("for", TokenType.FOR);
+        keywords.put("func", TokenType.FUNC);
+        keywords.put("return", TokenType.RETURN);
+        keywords.put("class", TokenType.CLASS);
+        keywords.put("super", TokenType.SUPER);
+        keywords.put("this", TokenType.THIS);
+        keywords.put("and", TokenType.AND);
+        keywords.put("or", TokenType.OR);
+        keywords.put("not", TokenType.NOT);
+    }
 
     public Lexer(String source) {
         this.source = source;
@@ -29,19 +53,43 @@ public class Lexer {
         switch (c) {
             case '(' -> addToken(TokenType.LEFT_PAREN);
             case ')' -> addToken(TokenType.RIGHT_PAREN);
-            case '{' -> addToken(TokenType.LEFT_BRACE);
-            case '}' -> addToken(TokenType.RIGHT_BRACE);
+            case '{' -> addToken(TokenType.OPEN_BRACE);
+            case '}' -> addToken(TokenType.CLOSE_BRACE);
             case ',' -> addToken(TokenType.COMMA);
+            case ';' -> addToken(TokenType.SEMICOLON);
             case '.' -> addToken(TokenType.DOT);
             case '+' -> addToken(TokenType.PLUS);
             case '-' -> addToken(TokenType.MINUS);
-            case '*' -> addToken(TokenType.STAR);
+            case '*' -> addToken(TokenType.MULT);
+
+            case '!' -> addToken(match('=') ? TokenType.NOT_EQUAL : TokenType.NOT);
+            case '=' -> addToken(match('=') ? TokenType.EQUAL : TokenType.ASSIGN);
+            case '<' -> addToken(match('=') ? TokenType.LESS_EQUAL : TokenType.LESS);
+            case '>' -> addToken(match('=') ? TokenType.GREATER_EQUAL : TokenType.GREATER);
 
             case '/' -> {
                 if (match('/')) {
-                    while (peek() != '\n' && !isAtEnd()) nextChar();
+                    while (peek() != '\n' && !isAtEnd()) {
+                        nextChar();
+                    }
                 } else {
-                    addToken(TokenType.SLASH);
+                    addToken(TokenType.DIV);
+                }
+            }
+
+            case '&' -> {
+                if (match('&')) {
+                    addToken(TokenType.AND);
+                } else {
+                    TalonScript.raiseError("Unexpected character: &", line);
+                }
+            }
+
+            case '|' -> {
+                if (match('|')) {
+                    addToken(TokenType.OR);
+                } else {
+                    TalonScript.raiseError("Unexpected character: |", line);
                 }
             }
 
@@ -78,6 +126,11 @@ public class Lexer {
         return source.charAt(current);
     }
 
+    private char peekNext() {
+        if (current + 1 >= source.length()) return '\0';
+        return source.charAt(current + 1);
+    }
+
     private void addToken(TokenType type) {
         addToken(type, null);
     }
@@ -93,7 +146,9 @@ public class Lexer {
 
     private void getStringToken() {
         while (peek() != '"' && !isAtEnd()) {
-            if (peek() == '\n') line++;
+            if (peek() == '\n') {
+                line++;
+            }
             nextChar();
         }
 
@@ -102,35 +157,45 @@ public class Lexer {
             return;
         }
 
-        nextChar(); 
+        nextChar();
 
         String value = source.substring(start + 1, current - 1);
         addToken(TokenType.STRING, value);
     }
 
     private void getNumberToken() {
-        while (Character.isDigit(peek())) nextChar();
+        while (Character.isDigit(peek())) {
+            nextChar();
+        }
 
         if (peek() == '.' && Character.isDigit(peekNext())) {
             nextChar();
-            while (Character.isDigit(peek())) nextChar();
+            while (Character.isDigit(peek())) {
+                nextChar();
+            }
         }
 
         double value = Double.parseDouble(source.substring(start, current));
         addToken(TokenType.NUMBER, value);
     }
 
-    private char peekNext() {
-        if (current + 1 >= source.length()) return '\0';
-        return source.charAt(current + 1);
-    }
-
     private void getIdentifier() {
-        while (Character.isLetterOrDigit(peek()) || peek() == '_') nextChar();
+        while (Character.isLetterOrDigit(peek()) || peek() == '_') {
+            nextChar();
+        }
 
         String text = source.substring(start, current);
+        TokenType type = keywords.get(text);
 
-        TokenType type = TokenType.IDENTIFIER; 
-        addToken(type);
+        if (type == null) {
+            type = TokenType.IDENTIFIER;
+        }
+
+        Object literal = null;
+        if (type == TokenType.TRUE) literal = true;
+        if (type == TokenType.FALSE) literal = false;
+        if (type == TokenType.NONE) literal = null;
+
+        addToken(type, literal);
     }
 }
