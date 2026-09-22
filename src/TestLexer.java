@@ -1,6 +1,5 @@
 public class TestLexer {
     public static void main(String[] args) {
-
         String code = """
             print("Hello");
             x = 123;
