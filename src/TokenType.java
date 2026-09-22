@@ -1,10 +1,10 @@
 public enum TokenType {
-
     TRUE, FALSE, NUMBER, STRING, NONE,
 
     PLUS, MINUS, MULT, DIV,
     NOT_EQUAL, EQUAL, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL,
     AND, OR, NOT,
+
     LEFT_PAREN, RIGHT_PAREN,
 
     SEMICOLON, OPEN_BRACE, CLOSE_BRACE,
@@ -16,5 +16,5 @@ public enum TokenType {
     CLASS, SUPER, THIS, DOT,
 
     EOF
-
 }
+
