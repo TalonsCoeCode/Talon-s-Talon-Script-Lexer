@@ -12,10 +12,12 @@ public class TalonScript {
 
     private static void runFile(String filename) {
         try {
-            String content = java.nio.file.Files.readString(java.nio.file.Path.of(filename));
+            String content = java.nio.file.Files.readString(
+                java.nio.file.Path.of(filename)
+            );
             run(content);
-        } catch (Exception e) {
-            System.out.println("Could not read file.");
+        } catch (java.io.IOException e) {
+            System.out.println("Could not read file: " + filename);
         }
     }
 
@@ -24,8 +26,17 @@ public class TalonScript {
 
         while (true) {
             System.out.print("TalonScript > ");
+
+            if (!scan.hasNextLine()) {
+                break;
+            }
+
             String line = scan.nextLine();
-            if (line.trim().isEmpty()) break;
+
+            if (line.trim().isEmpty()) {
+                break;
+            }
+
             run(line);
         }
     }
@@ -39,3 +50,4 @@ public class TalonScript {
         errorState = true;
     }
 }
+
