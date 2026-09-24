@@ -1,0 +1,5 @@
+AST: Binary | Unary | Literal | Grouping
+Binary : AST left, Token operator, AST right
+Unary : Token operator, AST right
+Literal : Object value
+Grouping : AST expression
