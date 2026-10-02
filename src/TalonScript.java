@@ -1,3 +1,8 @@
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Scanner;
+
 public class TalonScript {
 
     static boolean errorState = false;
@@ -12,37 +17,52 @@ public class TalonScript {
 
     private static void runFile(String filename) {
         try {
-            String content = java.nio.file.Files.readString(
-                java.nio.file.Path.of(filename)
-            );
+            String content = Files.readString(Path.of(filename));
             run(content);
-        } catch (java.io.IOException e) {
+        } catch (Exception e) {
             System.out.println("Could not read file: " + filename);
         }
     }
 
     private static void runREPL() {
-        java.util.Scanner scan = new java.util.Scanner(System.in);
+        Scanner scan = new Scanner(System.in);
 
         while (true) {
             System.out.print("TalonScript > ");
 
-            if (!scan.hasNextLine()) {
-                break;
-            }
+            if (!scan.hasNextLine()) break;
 
             String line = scan.nextLine();
-
-            if (line.trim().isEmpty()) {
-                break;
-            }
+            if (line.trim().isEmpty()) break;
 
             run(line);
         }
     }
 
     public static void run(String source) {
-        System.out.println(source);
+        // Reset the error flag for this new program/expression.
+        errorState = false;
+
+        // 1. Source program -> tokens
+        Lexer lexer = new Lexer(source);
+        ArrayList<Token> tokens = lexer.getTokens();
+
+        if (errorState) {
+            System.out.println("Lexing failed.");
+            return;
+        }
+
+        // 2. Tokens -> AST
+        Parser parser = new Parser(tokens);
+        AST ast = parser.parse();
+
+        if (errorState || ast == null) {
+            System.out.println("Parsing failed.");
+            return;
+        }
+
+        // 3. AST -> readable parenthesized form
+        System.out.println("AST: " + ASTPrinter.print(ast));
     }
 
     public static void raiseError(String msg, int line) {
@@ -50,4 +70,3 @@ public class TalonScript {
         errorState = true;
     }
 }
-
