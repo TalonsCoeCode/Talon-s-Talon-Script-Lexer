@@ -1,21 +1,50 @@
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 public class Interpreter {
+
+    private Environment environment = new Environment();
 
     public Object interpret(AST ast) {
         try {
-            return evaluate(ast);
+            return execute(ast);
         } catch (RuntimeError error) {
-            TalonScript.raiseError("Runtime error: " + error.getMessage(), error.line);
+            TalonScript.raiseError(
+                    "Runtime error: " + error.getMessage(),
+                    error.line
+            );
             return null;
         }
     }
 
-    private Object evaluate(AST ast) {
+    // Executes statements and evaluates expressions.
+    private Object execute(AST ast) {
+
+        if (ast instanceof AST.Program program) {
+            for (AST statement : program.statements) {
+                execute(statement);
+            }
+            return null;
+        }
+
         if (ast instanceof AST.Literal literal) {
             return literal.value;
         }
 
         if (ast instanceof AST.Grouping grouping) {
             return evaluate(grouping.expression);
+        }
+
+        if (ast instanceof AST.Variable variable) {
+            return environment.get(variable.name);
+        }
+
+        if (ast instanceof AST.Assign assign) {
+            Object value = evaluate(assign.value);
+            environment.assign(assign.name, value);
+            return value;
         }
 
         if (ast instanceof AST.Unary unary) {
@@ -26,9 +55,13 @@ public class Interpreter {
                     checkNumberOperand(unary.operator, right);
                     yield -((Double) right);
                 }
+
                 case NOT -> !isTruthy(right);
-                default -> throw new RuntimeError(unary.operator,
-                        "Unknown unary operator '" + unary.operator.lexeme + "'.");
+
+                default -> throw new RuntimeError(
+                        unary.operator,
+                        "Unknown unary operator."
+                );
             };
         }
 
@@ -39,20 +72,122 @@ public class Interpreter {
             return evaluateBinary(binary.operator, left, right);
         }
 
+        // Logical operations use short-circuit evaluation.
+        if (ast instanceof AST.Logical logical) {
+            Object left = evaluate(logical.left);
+
+            if (logical.operator.type == TokenType.OR) {
+                if (isTruthy(left)) {
+                    return left;
+                }
+            } else {
+                if (!isTruthy(left)) {
+                    return left;
+                }
+            }
+
+            return evaluate(logical.right);
+        }
+
+        // Variable declaration.
+        if (ast instanceof AST.Var var) {
+            Object value = null;
+
+            if (var.initializer != null) {
+                value = evaluate(var.initializer);
+            }
+
+            environment.define(var.name.lexeme, value);
+            return null;
+        }
+
+        // Write statement.
+        if (ast instanceof AST.Print print) {
+            Object value = evaluate(print.expression);
+
+            System.out.println(
+                    value == null ? "none" : value
+            );
+
+            return null;
+        }
+
+        // Expression statement.
+        if (ast instanceof AST.Expression expression) {
+            evaluate(expression.expression);
+            return null;
+        }
+
+        // Block statement.
+        if (ast instanceof AST.Block block) {
+            executeBlock(block.statements, new Environment(environment));
+            return null;
+        }
+
+        // If statement.
+        if (ast instanceof AST.If ifStatement) {
+            if (isTruthy(evaluate(ifStatement.condition))) {
+                execute(ifStatement.thenBranch);
+            } else if (ifStatement.elseBranch != null) {
+                execute(ifStatement.elseBranch);
+            }
+
+            return null;
+        }
+
+        // While loop.
+        if (ast instanceof AST.While whileStatement) {
+            while (isTruthy(evaluate(whileStatement.condition))) {
+                execute(whileStatement.body);
+            }
+
+            return null;
+        }
+
         throw new RuntimeException("Unknown AST node.");
     }
 
-    private Object evaluateBinary(Token operator, Object left, Object right) {
+    private Object evaluate(AST ast) {
+        return execute(ast);
+    }
+
+    // Executes statements inside a new scope.
+    private void executeBlock(
+            List<AST> statements,
+            Environment newEnvironment
+    ) {
+        Environment previous = environment;
+
+        try {
+            environment = newEnvironment;
+
+            for (AST statement : statements) {
+                execute(statement);
+            }
+        } finally {
+            environment = previous;
+        }
+    }
+
+    // Binary operations.
+    private Object evaluateBinary(
+            Token operator,
+            Object left,
+            Object right
+    ) {
         switch (operator.type) {
+
             case PLUS:
                 if (left instanceof Double && right instanceof Double) {
                     return (Double) left + (Double) right;
                 }
+
                 if (left instanceof String && right instanceof String) {
                     return (String) left + (String) right;
                 }
+
                 throw new RuntimeError(operator,
-                        "Operands of '+' must both be numbers or both be strings.");
+                        "Operands of '+' must both be numbers or strings.");
 
             case MINUS:
                 checkNumberOperands(operator, left, right);
@@ -64,8 +199,6 @@ public class Interpreter {
 
             case DIV:
                 checkNumberOperands(operator, left, right);
-                // Java double arithmetic gives Infinity/NaN for division by zero.
-                // This is intentional: e.g. (5 / 0) == (8 / 0) evaluates to true.
                 return (Double) left / (Double) right;
 
             case GREATER:
@@ -96,21 +229,29 @@ public class Interpreter {
         }
     }
 
+    // Truthiness rules.
     private boolean isTruthy(Object value) {
-        // Language rule: false, none, and the empty string are falsey.
-        // All other values, including 0 and nonempty strings, are truthy.
         if (value == null) return false;
-        if (value instanceof Boolean) return (Boolean) value;
-        if (value instanceof String) return !((String) value).isEmpty();
+
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+
+        if (value instanceof String) {
+            return !((String) value).isEmpty();
+        }
+
         return true;
     }
 
+    // Equality.
     private boolean isEqual(Object left, Object right) {
         if (left == null && right == null) return true;
         if (left == null || right == null) return false;
 
-        // Equality is type-sensitive.  Therefore "3" == 3 is false.
-        if (!left.getClass().equals(right.getClass())) return false;
+        if (!left.getClass().equals(right.getClass())) {
+            return false;
+        }
 
         return left.equals(right);
     }
@@ -122,7 +263,11 @@ public class Interpreter {
                 "Operand must be a number, but got " + typeName(operand) + ".");
     }
 
-    private void checkNumberOperands(Token operator, Object left, Object right) {
+    private void checkNumberOperands(
+            Token operator,
+            Object left,
+            Object right
+    ) {
         if (left instanceof Double && right instanceof Double) return;
 
         throw new RuntimeError(operator,
@@ -135,15 +280,67 @@ public class Interpreter {
         if (value instanceof Double) return "number";
         if (value instanceof String) return "string";
         if (value instanceof Boolean) return "boolean";
+
         return value.getClass().getSimpleName();
     }
 
+    // Runtime error.
     private static class RuntimeError extends RuntimeException {
         final int line;
 
         RuntimeError(Token token, String message) {
             super(message);
             this.line = token.line;
+        }
+    }
+
+    // Variable environment and nested scopes.
+    private static class Environment {
+        private final Map<String, Object> values = new HashMap<>();
+        private final Environment enclosing;
+
+        Environment() {
+            enclosing = null;
+        }
+
+        Environment(Environment enclosing) {
+            this.enclosing = enclosing;
+        }
+
+        void define(String name, Object value) {
+            values.put(name, value);
+        }
+
+        Object get(Token name) {
+            if (values.containsKey(name.lexeme)) {
+                return values.get(name.lexeme);
+            }
+
+            if (enclosing != null) {
+                return enclosing.get(name);
+            }
+
+            throw new RuntimeError(
+                    name,
+                    "Undefined variable '" + name.lexeme + "'."
+            );
+        }
+
+        void assign(Token name, Object value) {
+            if (values.containsKey(name.lexeme)) {
+                values.put(name.lexeme, value);
+                return;
+            }
+
+            if (enclosing != null) {
+                enclosing.assign(name, value);
+                return;
+            }
+
+            throw new RuntimeError(
+                    name,
+                    "Undefined variable '" + name.lexeme + "'."
+            );
         }
     }
 }

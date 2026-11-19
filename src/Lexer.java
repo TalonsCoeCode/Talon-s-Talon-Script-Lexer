@@ -21,6 +21,7 @@ public class Lexer {
         keywords.put("print", TokenType.WRITE);
         keywords.put("if", TokenType.IF);
         keywords.put("else", TokenType.ELSE);
+        keywords.put("elif", TokenType.ELIF);
         keywords.put("while", TokenType.WHILE);
         keywords.put("for", TokenType.FOR);
         keywords.put("func", TokenType.FUNC);

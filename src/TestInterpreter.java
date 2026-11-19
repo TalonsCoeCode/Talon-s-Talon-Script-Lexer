@@ -1,3 +1,5 @@
+import java.awt.event.ItemEvent;
+
 public class TestInterpreter {
     public static void main(String[] args) {
         System.out.println("--- Valid expressions ---");
@@ -11,6 +13,8 @@ public class TestInterpreter {
         test("none == none");
         test("\"3\" == 3");
         test("(5+3)3");
+        test("5/0");
+        test("\"s1\" == \"s1\"");
 
         System.out.println("\n--- Runtime error expressions ---");
         test("\"3\" + 3");
@@ -19,6 +23,12 @@ public class TestInterpreter {
         test("-(\"cat\")");
         test("3 > \"cat\"");
         test("8/0");
+        test("3" + "\"3\"");
+        test("true + false");
+        test("3 < \"5\"");
+        test("");
+        test(" 3 + (9/0)");
+
     }
 
     private static void test(String source) {
