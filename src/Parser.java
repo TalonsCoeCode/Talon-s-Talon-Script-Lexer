@@ -327,7 +327,37 @@ public class Parser {
             return new AST.Unary(operator, right);
         }
 
-        return primary();
+        return call();
+    }
+
+    // Function calls
+    // call -> primary ("(" arguments? ")")*
+    private AST call() {
+        AST expression = primary();
+
+        while (match(TokenType.LEFT_PAREN)) {
+            expression = finishCall(expression);
+        }
+
+        return expression;
+    }
+
+    // Parses the arguments passed to a function.
+    private AST finishCall(AST callee) {
+        List<AST> arguments = new ArrayList<>();
+
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                arguments.add(expression());
+            } while (match(TokenType.COMMA));
+        }
+
+        Token paren = consume(
+                TokenType.RIGHT_PAREN,
+                "Expected ')' after function arguments."
+        );
+
+        return new AST.Call(callee, paren, arguments);
     }
 
     private AST primary() {
@@ -418,11 +448,9 @@ public class Parser {
     }
 }
 
-//The parser follows this grammar:
-//expression -> equality
-// equality -> comparison (("!=" | "==") comparison)*
-// comparison -> term ((">" | ">=" | "<" | "<=") term)*
-// term -> factor (("+" | "-") factor)*
-// factor -> unary (("*" | "/") unary)*
-// unary -> ("!" | "-") unary | primary
-// primary -> NUMBER | STRING | true | false | none | "(" expression ")"
+// Grammar:
+// unary -> ("!" | "-") unary | call
+// call -> primary ("(" arguments? ")")*
+// arguments -> expression ("," expression)*
+// primary -> NUMBER | STRING | true | false | none
+//          | IDENTIFIER | "(" expression ")"

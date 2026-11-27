@@ -29,7 +29,20 @@ public class TestInterpreter {
         test("");
         test(" 3 + (9/0)");
 
+        System.out.println("--- Testing clock() ---");
+        test("write clock();");
+
+        System.out.println("\n--- Testing input() ---");
+        test("var name = input(\"What is your name? \"); write \"Hello, \" + name;");
+
+        System.out.println("\n--- Testing clock() in an expression ---");
+        test("write clock() + 10;");
+
+        System.out.println("\n--- Testing function argument errors ---");
+        test("clock(5);");
     }
+
+
 
     private static void test(String source) {
         System.out.println("Source: " + source);

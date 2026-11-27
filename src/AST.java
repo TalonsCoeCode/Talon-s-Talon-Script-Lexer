@@ -73,6 +73,19 @@ public abstract class AST {
         }
     }
 
+    // Function Call
+    public static class Call extends AST {
+        public final AST callee;
+        public final Token paren;
+        public final List<AST> arguments;
+
+        public Call(AST callee, Token paren, List<AST> arguments) {
+            this.callee = callee;
+            this.paren = paren;
+            this.arguments = arguments;
+        }
+    }
+
     // Statements
 
     public static class Program extends AST {

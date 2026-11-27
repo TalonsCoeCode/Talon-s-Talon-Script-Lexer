@@ -1,11 +1,57 @@
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
 public class Interpreter {
 
-    private Environment environment = new Environment();
+    private Environment environment;
+
+    private static final Scanner scanner = new Scanner(System.in);
+
+    // Interface for callable functions.
+    interface TalonCallable {
+        int arity();
+
+        Object call(List<Object> arguments);
+    }
+
+    // Constructor and built-in functions.
+    public Interpreter() {
+
+        environment = new Environment();
+
+        // clock() returns the current time in seconds.
+        environment.define("clock", new TalonCallable() {
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public Object call(List<Object> arguments) {
+                return System.currentTimeMillis() / 1000.0;
+            }
+        });
+
+        // input(prompt) displays a prompt and returns user input.
+        environment.define("input", new TalonCallable() {
+            @Override
+            public int arity() {
+                return 1;
+            }
+
+            @Override
+            public Object call(List<Object> arguments) {
+                System.out.print(arguments.get(0));
+                System.out.flush();
+
+                return scanner.nextLine();
+            }
+        });
+    }
 
     public Object interpret(AST ast) {
         try {
@@ -45,6 +91,37 @@ public class Interpreter {
             Object value = evaluate(assign.value);
             environment.assign(assign.name, value);
             return value;
+        }
+
+        // Function calls.
+        if (ast instanceof AST.Call call) {
+
+            Object callee = evaluate(call.callee);
+
+            List<Object> arguments = new ArrayList<>();
+
+            for (AST argument : call.arguments) {
+                arguments.add(evaluate(argument));
+            }
+
+            if (!(callee instanceof TalonCallable)) {
+                throw new RuntimeError(
+                        call.paren,
+                        "Can only call functions."
+                );
+            }
+
+            TalonCallable function = (TalonCallable) callee;
+
+            if (arguments.size() != function.arity()) {
+                throw new RuntimeError(
+                        call.paren,
+                        "Expected " + function.arity()
+                                + " arguments but got " + arguments.size() + "."
+                );
+            }
+
+            return function.call(arguments);
         }
 
         if (ast instanceof AST.Unary unary) {
@@ -344,4 +421,3 @@ public class Interpreter {
         }
     }
 }
-
